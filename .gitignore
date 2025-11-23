@@ -1,22 +1,14 @@
-# Create correct .gitignore (without EOF)
-cat > .gitignore << 'EOF'
-# Dependencies
 node_modules/
 client/node_modules/
 server/node_modules/
 
-# Production builds
 client/build/
 
-# Environment variables
 .env
 .env.local
 
-# OS files
 .DS_Store
 *.log
 
-# IDE
 .vscode/
 .idea/
-EOF
