@@ -1,3 +1,5 @@
+# Create correct .gitignore (without EOF)
+cat > .gitignore << 'EOF'
 # Dependencies
 node_modules/
 client/node_modules/
