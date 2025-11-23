@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import Chat from './Chat';
 import './Editor.css';
 
-const SOCKET_SERVER = 'http://localhost:5001';
+const SOCKET_SERVER = process.env.REACT_APP_SOCKET_SERVER || 'http://localhost:5001';
 
 function Editor({ roomId, username }) {
   const [code, setCode] = useState('// Start coding...');
