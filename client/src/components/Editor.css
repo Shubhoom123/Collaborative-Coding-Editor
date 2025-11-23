@@ -1,0 +1,130 @@
+.editor-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+  }
+  
+  .editor-header {
+    background: linear-gradient(to bottom, #2d2d30 0%, #252526 100%);
+    padding: 1.2rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 0.5px solid #fbbf24;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  
+  .header-left h2 {
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  .room-info {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    align-items: center;
+  }
+  
+  .room-id {
+    color: #fbbf24;
+    cursor: pointer;
+    padding: 0.4rem 0.9rem;
+    background: rgba(251, 191, 36, 0.1);
+    border-radius: 6px;
+    transition: all 0.3s;
+    font-weight: 500;
+    font-family: 'Consolas', monospace;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+  
+  .room-id:hover {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: #fbbf24;
+    transform: translateY(-1px);
+  }
+  
+  .user-count {
+    color: #cccccc;
+    padding: 0.4rem 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .header-right {
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+  }
+  
+  .language-select {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: 'Consolas', monospace;
+    font-weight: 500;
+    transition: all 0.3s;
+    min-width: 140px;
+  }
+  
+  .language-select:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .language-select:focus {
+    outline: none;
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
+  }
+  
+  .chat-toggle {
+    padding: 0.5rem 1.2rem;
+    background: #fbbf24;
+    color: #1e1e1e;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.2);
+  }
+  
+  .chat-toggle:hover {
+    background: #f59e0b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+  }
+  
+  .chat-toggle:active {
+    transform: translateY(0);
+  }
+  
+  .editor-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  .monaco-wrapper {
+    flex: 1;
+    overflow: hidden;
+    padding: 20px;
+    background: #1e1e1e;
+  }
