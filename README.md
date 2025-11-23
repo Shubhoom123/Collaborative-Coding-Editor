@@ -2,9 +2,6 @@
 
 A real-time collaborative code editor that allows multiple users to code together simultaneously. Built with React, Node.js, Socket.io, and Monaco Editor.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://collaborative-coding-editor.onrender.com)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 ## ✨ Features
 
 - 💻 **Real-time Collaboration** - Multiple users can edit code simultaneously
@@ -93,27 +90,6 @@ Frontend will run on `http://localhost:3000`
 4. Monaco Editor provides the rich code editing experience
 5. Chat messages are sent through the same WebSocket connection
 
-## 📁 Project Structure
-```
-Collaborative-Coding-Editor/
-├── client/                 # React frontend
-│   ├── public/
-│   └── src/
-│       ├── components/
-│       │   ├── Editor.js      # Main editor component
-│       │   ├── Editor.css
-│       │   ├── Chat.js        # Chat component
-│       │   └── Chat.css
-│       ├── App.js
-│       └── App.css
-├── server/                 # Node.js backend
-│   ├── server.js          # Express + Socket.io server
-│   └── package.json
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
 ## 🌟 Features in Detail
 
 ### Real-time Code Synchronization
@@ -136,29 +112,6 @@ Collaborative-Coding-Editor/
 - Easy room creation and joining
 - Automatic cleanup of empty rooms
 
-## 🚀 Deployment
-
-### Backend (Render)
-1. Create a new Web Service on [Render](https://render.com)
-2. Connect your GitHub repository
-3. Set Root Directory to `server`
-4. Build Command: `npm install`
-5. Start Command: `npm start`
-
-### Frontend (Render/Vercel/Netlify)
-1. Create a new Static Site
-2. Set Root Directory to `client`
-3. Build Command: `npm install && npm run build`
-4. Publish Directory: `build`
-5. Add environment variable: `REACT_APP_SOCKET_SERVER` with your backend URL
-
-## 🔧 Environment Variables
-
-### Frontend (.env)
-```
-REACT_APP_SOCKET_SERVER=https://your-backend-url.onrender.com
-```
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -180,23 +133,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [ ] Code sharing via unique URLs
 - [ ] Syntax error detection
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 👨‍💻 Author
 
 **Shubham Khalkho**
 - GitHub: [@Shubhoom123](https://github.com/Shubhoom123)
 - Project Link: [https://github.com/Shubhoom123/Collaborative-Coding-Editor](https://github.com/Shubhoom123/Collaborative-Coding-Editor)
-
-## 🙏 Acknowledgments
-
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - The code editor that powers VS Code
-- [Socket.io](https://socket.io/) - Real-time bidirectional event-based communication
-- [React](https://reactjs.org/) - A JavaScript library for building user interfaces
-- Inspired by collaborative coding platforms like CodePen and Repl.it
-
----
 
 ⭐️ If you found this project helpful, please give it a star!
