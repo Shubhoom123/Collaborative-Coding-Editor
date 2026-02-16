@@ -11,6 +11,8 @@ function Editor({ roomId, username }) {
   const [language, setLanguage] = useState('javascript');
   const [users, setUsers] = useState(1);
   const [chatOpen, setChatOpen] = useState(true);
+  const [terminalTabs, setTerminalTabs] = useState([]);
+  const [activeTerminalTab, setActiveTerminalTab] = useState(null);
   const socketRef = useRef(null);
   const editorRef = useRef(null);
   const isRemoteChange = useRef(false);
@@ -40,6 +42,18 @@ function Editor({ roomId, username }) {
 
     socketRef.current.on('user-left', ({ userCount }) => {
       setUsers(userCount);
+    });
+
+    socketRef.current.on('compile-result', (result) => {
+      const newTab = {
+        id: Date.now(),
+        title: result.error ? 'Error' : 'Output',
+        content: result.error ? result.message : result.output,
+        type: result.error ? 'error' : 'success'
+      };
+      
+      setTerminalTabs(prev => [...prev, newTab]);
+      setActiveTerminalTab(newTab.id);
     });
 
     return () => {
@@ -72,6 +86,25 @@ function Editor({ roomId, username }) {
     alert('Room ID copied to clipboard!');
   };
 
+  const handleRunCode = () => {
+    socketRef.current.emit('compile-code', {
+      roomId,
+      code,
+      language
+    });
+  };
+
+  const closeTerminalTab = (tabId) => {
+    setTerminalTabs(prev => prev.filter(tab => tab.id !== tabId));
+    
+    if (terminalTabs.length > 1) {
+      const remainingTabs = terminalTabs.filter(tab => tab.id !== tabId);
+      setActiveTerminalTab(remainingTabs[remainingTabs.length - 1].id);
+    } else {
+      setActiveTerminalTab(null);
+    }
+  };
+
   return (
     <div className="editor-container">
       <div className="editor-header">
@@ -97,6 +130,10 @@ function Editor({ roomId, username }) {
             <option value="json">JSON</option>
           </select>
           
+          <button onClick={handleRunCode} className="run-button">
+            Run Code
+          </button>
+          
           <button onClick={() => setChatOpen(!chatOpen)} className="chat-toggle">
             {chatOpen ? 'Hide Chat' : 'Show Chat'}
           </button>
@@ -104,21 +141,63 @@ function Editor({ roomId, username }) {
       </div>
 
       <div className="editor-content">
-        <div className="monaco-wrapper">
-          <MonacoEditor
-            height="100%"
-            language={language}
-            value={code}
-            onChange={handleEditorChange}
-            onMount={handleEditorDidMount}
-            theme="vs-dark"
-            options={{
-              fontSize: 14,
-              minimap: { enabled: true },
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-            }}
-          />
+        <div className="monaco-and-terminal-wrapper">
+          <div className="monaco-wrapper">
+            <MonacoEditor
+              height="100%"
+              language={language}
+              value={code}
+              onChange={handleEditorChange}
+              onMount={handleEditorDidMount}
+              theme="vs-dark"
+              options={{
+                fontSize: 14,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                fixedOverflowWidgets: true,
+                renderLineHighlight: 'none',
+              }}
+            />
+          </div>
+
+          {terminalTabs.length > 0 && (
+            <div className="terminal-panel">
+              <div className="terminal-tabs">
+                {terminalTabs.map(tab => (
+                  <div 
+                    key={tab.id} 
+                    className={`terminal-tab ${activeTerminalTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setActiveTerminalTab(tab.id)}
+                  >
+                    {tab.title}
+                    <span 
+                      className="tab-close"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeTerminalTab(tab.id);
+                      }}
+                    >
+                      ×
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="terminal-content">
+                {terminalTabs
+                  .filter(tab => tab.id === activeTerminalTab)
+                  .map(tab => (
+                    <pre 
+                      key={tab.id} 
+                      className={`terminal-output ${tab.type}`}
+                    >
+                      {tab.content}
+                    </pre>
+                  ))
+                }
+              </div>
+            </div>
+          )}
         </div>
         
         {chatOpen && (
