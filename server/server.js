@@ -18,6 +18,14 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
+// Serve React build in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  });
+}
+
 // Store active rooms and their code
 const rooms = new Map();
 
@@ -27,7 +35,6 @@ function compileAndRunCode(code, language, socket, roomId) {
     fs.mkdirSync(tempDir);
   }
 
-  // Use socket.id to ensure unique filenames per user — fixes Java concurrent conflict
   const uid = socket.id.replace(/[^a-zA-Z0-9]/g, '');
   let filename, command;
 
@@ -53,14 +60,10 @@ function compileAndRunCode(code, language, socket, roomId) {
     }
 
     case 'java': {
-      // Extract public class name from code, fallback to Main
       const classMatch = code.match(/public\s+class\s+(\w+)/);
       const className = classMatch ? classMatch[1] : 'Main';
-
-      // Each user gets their own subdirectory to avoid file conflicts
       const javaDir = path.join(tempDir, `java_${uid}`);
       if (!fs.existsSync(javaDir)) fs.mkdirSync(javaDir);
-
       filename = path.join(javaDir, `${className}.java`);
       fs.writeFileSync(filename, code);
       command = `javac "${filename}" && java -cp "${javaDir}" ${className}`;
@@ -76,10 +79,8 @@ function compileAndRunCode(code, language, socket, roomId) {
   }
 
   exec(command, { timeout: 10000, cwd: tempDir }, (error, stdout, stderr) => {
-    // Clean up temp files
     try {
       if (filename && fs.existsSync(filename)) fs.unlinkSync(filename);
-
       if (language === 'cpp') {
         const execFile = path.join(tempDir, `code_${uid}.out`);
         if (fs.existsSync(execFile)) fs.unlinkSync(execFile);
@@ -127,7 +128,6 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     room.users.add(socket.id);
 
-    // Fix: send userCount as a plain number, not users (Set doesn't serialize over socket)
     socket.emit('load-code', {
       code: room.code,
       language: room.language,
@@ -157,7 +157,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('compile-code', ({ roomId, code, language }) => {
-    // Re-register room if server restarted (silent failure fix)
     if (!rooms.has(roomId)) {
       rooms.set(roomId, {
         code,

@@ -13,3 +13,26 @@ client/build/
 .vscode/
 .idea/
 .history/
+
+# Temp folder created by server for code execution
+temp/
+server/temp/
+
+# React build artifacts
+client/.cache/
+build/
+
+# OS files
+Thumbs.db
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+
+# Swap files (vim)
+*.swp
+*.swo
