@@ -54,7 +54,7 @@ function Editor({ roomId, username }) {
         content: result.error ? result.message : result.output,
         type: result.error ? 'error' : 'success'
       };
-      setTerminalTabs(prev => [...prev.filter(t => t.id !== 'running'), newTab]);
+      setTerminalTabs(prev => [...prev, newTab]);
       setActiveTerminalTab(newTab.id);
     });
 

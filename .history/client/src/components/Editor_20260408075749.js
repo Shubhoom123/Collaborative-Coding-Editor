@@ -13,7 +13,6 @@ function Editor({ roomId, username }) {
   const [chatOpen, setChatOpen] = useState(true);
   const [terminalTabs, setTerminalTabs] = useState([]);
   const [activeTerminalTab, setActiveTerminalTab] = useState(null);
-  const [isRunning, setIsRunning] = useState(false);
   const socketRef = useRef(null);
   const editorRef = useRef(null);
   const isRemoteChange = useRef(false);
@@ -22,11 +21,10 @@ function Editor({ roomId, username }) {
     socketRef.current = io(SOCKET_SERVER);
     socketRef.current.emit('join-room', roomId);
 
-    // Fix: server now sends userCount instead of users.size (Set doesn't serialize)
     socketRef.current.on('load-code', (roomData) => {
       setCode(roomData.code);
       setLanguage(roomData.language);
-      setUsers(roomData.userCount);
+      setUsers(roomData.users.size);
     });
 
     socketRef.current.on('code-update', (newCode) => {
@@ -47,14 +45,14 @@ function Editor({ roomId, username }) {
     });
 
     socketRef.current.on('compile-result', (result) => {
-      setIsRunning(false);
       const newTab = {
         id: Date.now(),
-        title: result.error ? '⚠ Error' : '✓ Output',
+        title: result.error ? 'Error' : 'Output',
         content: result.error ? result.message : result.output,
         type: result.error ? 'error' : 'success'
       };
-      setTerminalTabs(prev => [...prev.filter(t => t.id !== 'running'), newTab]);
+      
+      setTerminalTabs(prev => [...prev, newTab]);
       setActiveTerminalTab(newTab.id);
     });
 
@@ -68,6 +66,7 @@ function Editor({ roomId, username }) {
       isRemoteChange.current = false;
       return;
     }
+    
     setCode(value);
     socketRef.current.emit('code-change', { roomId, code: value });
   };
@@ -88,37 +87,22 @@ function Editor({ roomId, username }) {
   };
 
   const handleRunCode = () => {
-    if (isRunning) return;
-    setIsRunning(true);
-
-    // Add a "Running..." tab immediately for feedback
-    const runningTab = {
-      id: 'running',
-      title: '⏳ Running...',
-      content: 'Executing code, please wait...',
-      type: 'running'
-    };
-    setTerminalTabs(prev => [...prev, runningTab]);
-    setActiveTerminalTab('running');
-
-    socketRef.current.emit('compile-code', { roomId, code, language });
-  };
-
-  const closeTerminalTab = (tabId) => {
-    setTerminalTabs(prev => {
-      const remaining = prev.filter(tab => tab.id !== tabId);
-      if (activeTerminalTab === tabId && remaining.length > 0) {
-        setActiveTerminalTab(remaining[remaining.length - 1].id);
-      } else if (remaining.length === 0) {
-        setActiveTerminalTab(null);
-      }
-      return remaining;
+    socketRef.current.emit('compile-code', {
+      roomId,
+      code,
+      language
     });
   };
 
-  const clearAllTabs = () => {
-    setTerminalTabs([]);
-    setActiveTerminalTab(null);
+  const closeTerminalTab = (tabId) => {
+    setTerminalTabs(prev => prev.filter(tab => tab.id !== tabId));
+    
+    if (terminalTabs.length > 1) {
+      const remainingTabs = terminalTabs.filter(tab => tab.id !== tabId);
+      setActiveTerminalTab(remainingTabs[remainingTabs.length - 1].id);
+    } else {
+      setActiveTerminalTab(null);
+    }
   };
 
   return (
@@ -133,19 +117,20 @@ function Editor({ roomId, username }) {
             <span className="user-count">{users} user{users !== 1 ? 's' : ''} online</span>
           </div>
         </div>
-
+        
         <div className="header-right">
           <select value={language} onChange={handleLanguageChange} className="language-select">
             <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
             <option value="python">Python</option>
             <option value="java">Java</option>
             <option value="cpp">C++</option>
           </select>
-
-          <button onClick={handleRunCode} className={`run-button ${isRunning ? 'running' : ''}`} disabled={isRunning}>
-            {isRunning ? 'Running...' : '▶ Run Code'}
+          
+          <button onClick={handleRunCode} className="run-button">
+            Run Code
           </button>
-
+          
           <button onClick={() => setChatOpen(!chatOpen)} className="chat-toggle">
             {chatOpen ? 'Hide Chat' : 'Show Chat'}
           </button>
@@ -177,13 +162,13 @@ function Editor({ roomId, username }) {
             <div className="terminal-panel">
               <div className="terminal-tabs">
                 {terminalTabs.map(tab => (
-                  <div
-                    key={tab.id}
-                    className={`terminal-tab ${activeTerminalTab === tab.id ? 'active' : ''} ${tab.type}`}
+                  <div 
+                    key={tab.id} 
+                    className={`terminal-tab ${activeTerminalTab === tab.id ? 'active' : ''}`}
                     onClick={() => setActiveTerminalTab(tab.id)}
                   >
                     {tab.title}
-                    <span
+                    <span 
                       className="tab-close"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -194,24 +179,24 @@ function Editor({ roomId, username }) {
                     </span>
                   </div>
                 ))}
-                <button className="clear-terminal" onClick={clearAllTabs}>Clear All</button>
               </div>
               <div className="terminal-content">
                 {terminalTabs
                   .filter(tab => tab.id === activeTerminalTab)
                   .map(tab => (
-                    <pre
-                      key={tab.id}
+                    <pre 
+                      key={tab.id} 
                       className={`terminal-output ${tab.type}`}
                     >
                       {tab.content}
                     </pre>
-                  ))}
+                  ))
+                }
               </div>
             </div>
           )}
         </div>
-
+        
         {chatOpen && (
           <Chat socket={socketRef.current} roomId={roomId} username={username} />
         )}
