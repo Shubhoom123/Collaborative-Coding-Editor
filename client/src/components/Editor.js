@@ -5,6 +5,61 @@ import Chat from './Chat';
 import './Editor.css';
 
 const SOCKET_SERVER = process.env.REACT_APP_SOCKET_SERVER || 'http://localhost:5001';
+const JUDGE0_API = 'https://ce.judge0.com';
+
+// Judge0 language IDs
+const LANGUAGE_IDS = {
+  javascript: 63,
+  python: 71,
+  java: 62,
+  cpp: 54
+};
+
+async function runWithJudge0(code, language) {
+  const languageId = LANGUAGE_IDS[language];
+
+  // Submit code
+  const submitRes = await fetch(`${JUDGE0_API}/submissions?base64_encoded=false&wait=false`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      source_code: code,
+      language_id: languageId,
+      stdin: ''
+    })
+  });
+
+  const { token } = await submitRes.json();
+
+  // Poll for result every 1.5s, up to 10 times
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+
+    const resultRes = await fetch(`${JUDGE0_API}/submissions/${token}?base64_encoded=false`, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await resultRes.json();
+
+    // Status 1 = In Queue, 2 = Processing — keep waiting
+    if (result.status.id <= 2) continue;
+
+    if (result.status.id === 3) {
+      return { error: false, output: result.stdout || '(No output)' };
+    } else {
+      return {
+        error: true,
+        message: result.stderr || result.compile_output || result.status.description
+      };
+    }
+  }
+
+  return { error: true, message: 'Execution timed out. Please try again.' };
+}
 
 function Editor({ roomId, username }) {
   const [code, setCode] = useState('// Start coding...');
@@ -22,7 +77,6 @@ function Editor({ roomId, username }) {
     socketRef.current = io(SOCKET_SERVER);
     socketRef.current.emit('join-room', roomId);
 
-    // Fix: server now sends userCount instead of users.size (Set doesn't serialize)
     socketRef.current.on('load-code', (roomData) => {
       setCode(roomData.code);
       setLanguage(roomData.language);
@@ -44,18 +98,6 @@ function Editor({ roomId, username }) {
 
     socketRef.current.on('user-left', ({ userCount }) => {
       setUsers(userCount);
-    });
-
-    socketRef.current.on('compile-result', (result) => {
-      setIsRunning(false);
-      const newTab = {
-        id: Date.now(),
-        title: result.error ? '⚠ Error' : '✓ Output',
-        content: result.error ? result.message : result.output,
-        type: result.error ? 'error' : 'success'
-      };
-      setTerminalTabs(prev => [...prev.filter(t => t.id !== 'running'), newTab]);
-      setActiveTerminalTab(newTab.id);
     });
 
     return () => {
@@ -87,11 +129,10 @@ function Editor({ roomId, username }) {
     alert('Room ID copied to clipboard!');
   };
 
-  const handleRunCode = () => {
+  const handleRunCode = async () => {
     if (isRunning) return;
     setIsRunning(true);
 
-    // Add a "Running..." tab immediately for feedback
     const runningTab = {
       id: 'running',
       title: '⏳ Running...',
@@ -101,7 +142,28 @@ function Editor({ roomId, username }) {
     setTerminalTabs(prev => [...prev, runningTab]);
     setActiveTerminalTab('running');
 
-    socketRef.current.emit('compile-code', { roomId, code, language });
+    try {
+      const result = await runWithJudge0(code, language);
+      const newTab = {
+        id: Date.now(),
+        title: result.error ? '⚠ Error' : '✓ Output',
+        content: result.error ? result.message : result.output,
+        type: result.error ? 'error' : 'success'
+      };
+      setTerminalTabs(prev => [...prev.filter(t => t.id !== 'running'), newTab]);
+      setActiveTerminalTab(newTab.id);
+    } catch (err) {
+      const errorTab = {
+        id: Date.now(),
+        title: '⚠ Error',
+        content: 'Failed to connect to execution service. Please try again.',
+        type: 'error'
+      };
+      setTerminalTabs(prev => [...prev.filter(t => t.id !== 'running'), errorTab]);
+      setActiveTerminalTab(errorTab.id);
+    }
+
+    setIsRunning(false);
   };
 
   const closeTerminalTab = (tabId) => {
