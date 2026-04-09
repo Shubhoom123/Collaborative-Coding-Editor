@@ -7,7 +7,6 @@ import './Editor.css';
 const SOCKET_SERVER = process.env.REACT_APP_SOCKET_SERVER || 'http://localhost:5001';
 const JUDGE0_API = 'https://ce.judge0.com';
 
-// Judge0 language IDs
 const LANGUAGE_IDS = {
   javascript: 63,
   python: 71,
@@ -15,37 +14,62 @@ const LANGUAGE_IDS = {
   cpp: 54
 };
 
-async function runWithJudge0(code, language) {
+const LANGUAGE_STARTERS = {
+  javascript: `// JavaScript starter
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+  console.log('Input:', line);
+  rl.close();
+});`,
+  python: `# Python starter
+line = input()
+print('Input:', line)`,
+  java: `// Java starter
+import java.util.Scanner;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String line = sc.nextLine();
+        System.out.println("Input: " + line);
+    }
+}`,
+  cpp: `// C++ starter
+#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    cout << "Input: " << line << endl;
+    return 0;
+}`
+};
+
+async function runWithJudge0(code, language, stdin) {
   const languageId = LANGUAGE_IDS[language];
 
-  // Submit code
   const submitRes = await fetch(`${JUDGE0_API}/submissions?base64_encoded=false&wait=false`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       source_code: code,
       language_id: languageId,
-      stdin: ''
+      stdin: stdin || ''
     })
   });
 
   const { token } = await submitRes.json();
 
-  // Poll for result every 1.5s, up to 10 times
   for (let i = 0; i < 10; i++) {
     await new Promise(r => setTimeout(r, 1500));
 
     const resultRes = await fetch(`${JUDGE0_API}/submissions/${token}?base64_encoded=false`, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
     const result = await resultRes.json();
 
-    // Status 1 = In Queue, 2 = Processing — keep waiting
     if (result.status.id <= 2) continue;
 
     if (result.status.id === 3) {
@@ -69,6 +93,8 @@ function Editor({ roomId, username }) {
   const [terminalTabs, setTerminalTabs] = useState([]);
   const [activeTerminalTab, setActiveTerminalTab] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [stdin, setStdin] = useState('');
+  const [showStdin, setShowStdin] = useState(false);
   const socketRef = useRef(null);
   const editorRef = useRef(null);
   const isRemoteChange = useRef(false);
@@ -129,6 +155,12 @@ function Editor({ roomId, username }) {
     alert('Room ID copied to clipboard!');
   };
 
+  const loadStarterCode = () => {
+    const starter = LANGUAGE_STARTERS[language];
+    setCode(starter);
+    socketRef.current.emit('code-change', { roomId, code: starter });
+  };
+
   const handleRunCode = async () => {
     if (isRunning) return;
     setIsRunning(true);
@@ -143,7 +175,7 @@ function Editor({ roomId, username }) {
     setActiveTerminalTab('running');
 
     try {
-      const result = await runWithJudge0(code, language);
+      const result = await runWithJudge0(code, language, stdin);
       const newTab = {
         id: Date.now(),
         title: result.error ? '⚠ Error' : '✓ Output',
@@ -204,6 +236,18 @@ function Editor({ roomId, username }) {
             <option value="cpp">C++</option>
           </select>
 
+          <button onClick={loadStarterCode} className="starter-button" title="Load starter code for selected language">
+            Starter Code
+          </button>
+
+          <button
+            onClick={() => setShowStdin(!showStdin)}
+            className={`stdin-toggle ${showStdin ? 'active' : ''}`}
+            title="Toggle stdin input"
+          >
+            {showStdin ? 'Hide Input' : 'Add Input'}
+          </button>
+
           <button onClick={handleRunCode} className={`run-button ${isRunning ? 'running' : ''}`} disabled={isRunning}>
             {isRunning ? 'Running...' : '▶ Run Code'}
           </button>
@@ -235,6 +279,24 @@ function Editor({ roomId, username }) {
             />
           </div>
 
+          {/* Stdin Panel */}
+          {showStdin && (
+            <div className="stdin-panel">
+              <div className="stdin-header">
+                <span>📥 Standard Input (stdin)</span>
+                <span className="stdin-hint">This will be passed to your program when it reads from input</span>
+              </div>
+              <textarea
+                className="stdin-textarea"
+                value={stdin}
+                onChange={(e) => setStdin(e.target.value)}
+                placeholder="Enter input for your program here...&#10;Each line = one line of input"
+                spellCheck={false}
+              />
+            </div>
+          )}
+
+          {/* Terminal Output Panel */}
           {terminalTabs.length > 0 && (
             <div className="terminal-panel">
               <div className="terminal-tabs">
@@ -262,10 +324,7 @@ function Editor({ roomId, username }) {
                 {terminalTabs
                   .filter(tab => tab.id === activeTerminalTab)
                   .map(tab => (
-                    <pre
-                      key={tab.id}
-                      className={`terminal-output ${tab.type}`}
-                    >
+                    <pre key={tab.id} className={`terminal-output ${tab.type}`}>
                       {tab.content}
                     </pre>
                   ))}
