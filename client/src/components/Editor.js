@@ -150,6 +150,17 @@ function Editor({ roomId, username }) {
       setUsers(userCount);
     });
 
+    socketRef.current.on('error-event', ({ message }) => {
+      const errorTab = {
+        id: Date.now(),
+        title: '⚠ Error',
+        content: `Server: ${message}`,
+        type: 'error'
+      };
+      setTerminalTabs(prev => [...prev, errorTab]);
+      setActiveTerminalTab(errorTab.id);
+    });
+
     return () => {
       socketRef.current.disconnect();
     };

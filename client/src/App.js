@@ -7,11 +7,21 @@ function App() {
   const [username, setUsername] = useState('');
   const [joined, setJoined] = useState(false);
 
+  const ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+
   const handleJoinRoom = (e) => {
     e.preventDefault();
-    if (roomId.trim() && username.trim()) {
-      setJoined(true);
+    const trimmedRoom = roomId.trim();
+    const trimmedName = username.trim();
+    if (!ROOM_ID_RE.test(trimmedRoom)) {
+      alert('Room ID must be 1–32 characters: letters, numbers, - or _ only.');
+      return;
     }
+    if (!trimmedName || trimmedName.length > 32) {
+      alert('Username must be 1–32 characters.');
+      return;
+    }
+    setJoined(true);
   };
 
   const generateRoomId = () => {
@@ -36,6 +46,7 @@ function App() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="input-field"
+                  maxLength={32}
                   required
                 />
               </div>
@@ -48,6 +59,7 @@ function App() {
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                   className="input-field"
+                  maxLength={32}
                   required
                 />
               </div>

@@ -79,6 +79,7 @@ function Chat({ socket, roomId, username }) {
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Type a message..."
           className="message-input"
+          maxLength={1000}
         />
         <button type="submit" className="send-button">
           Send
