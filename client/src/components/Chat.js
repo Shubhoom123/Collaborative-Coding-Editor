@@ -9,12 +9,14 @@ function Chat({ socket, roomId, username }) {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('receive-message', (data) => {
+    const handleMessage = (data) => {
       setMessages(prev => [...prev, data]);
-    });
+    };
+
+    socket.on('receive-message', handleMessage);
 
     return () => {
-      socket.off('receive-message');
+      socket.off('receive-message', handleMessage);
     };
   }, [socket]);
 
