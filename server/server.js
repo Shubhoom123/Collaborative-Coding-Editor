@@ -2,8 +2,6 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
-const { exec } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 
 const app = express();
@@ -28,88 +26,6 @@ if (process.env.NODE_ENV === 'production') {
 
 // Store active rooms and their code
 const rooms = new Map();
-
-function compileAndRunCode(code, language, socket, roomId) {
-  const tempDir = path.join(__dirname, 'temp');
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir);
-  }
-
-  const uid = socket.id.replace(/[^a-zA-Z0-9]/g, '');
-  let filename, command;
-
-  switch (language) {
-    case 'python':
-      filename = path.join(tempDir, `code_${uid}.py`);
-      fs.writeFileSync(filename, code);
-      command = `python3 "${filename}"`;
-      break;
-
-    case 'javascript':
-      filename = path.join(tempDir, `code_${uid}.js`);
-      fs.writeFileSync(filename, code);
-      command = `node "${filename}"`;
-      break;
-
-    case 'cpp': {
-      filename = path.join(tempDir, `code_${uid}.cpp`);
-      const execFile = path.join(tempDir, `code_${uid}.out`);
-      fs.writeFileSync(filename, code);
-      command = `g++ "${filename}" -o "${execFile}" && "${execFile}"`;
-      break;
-    }
-
-    case 'java': {
-      const classMatch = code.match(/public\s+class\s+(\w+)/);
-      const className = classMatch ? classMatch[1] : 'Main';
-      const javaDir = path.join(tempDir, `java_${uid}`);
-      if (!fs.existsSync(javaDir)) fs.mkdirSync(javaDir);
-      filename = path.join(javaDir, `${className}.java`);
-      fs.writeFileSync(filename, code);
-      command = `javac "${filename}" && java -cp "${javaDir}" ${className}`;
-      break;
-    }
-
-    default:
-      io.to(roomId).emit('compile-result', {
-        error: true,
-        message: `Unsupported language: ${language}`
-      });
-      return;
-  }
-
-  exec(command, { timeout: 10000, cwd: tempDir }, (error, stdout, stderr) => {
-    try {
-      if (filename && fs.existsSync(filename)) fs.unlinkSync(filename);
-      if (language === 'cpp') {
-        const execFile = path.join(tempDir, `code_${uid}.out`);
-        if (fs.existsSync(execFile)) fs.unlinkSync(execFile);
-      }
-      if (language === 'java') {
-        const javaDir = path.join(tempDir, `java_${uid}`);
-        if (fs.existsSync(javaDir)) {
-          fs.readdirSync(javaDir).forEach(f => fs.unlinkSync(path.join(javaDir, f)));
-          fs.rmdirSync(javaDir);
-        }
-      }
-    } catch (cleanupError) {
-      console.error('Cleanup error:', cleanupError);
-    }
-
-    if (error) {
-      io.to(roomId).emit('compile-result', {
-        error: true,
-        message: stderr || error.message
-      });
-      return;
-    }
-
-    io.to(roomId).emit('compile-result', {
-      error: false,
-      output: stdout || '(No output)'
-    });
-  });
-}
 
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
@@ -154,17 +70,6 @@ io.on('connection', (socket) => {
       rooms.get(roomId).language = language;
       socket.to(roomId).emit('language-update', language);
     }
-  });
-
-  socket.on('compile-code', ({ roomId, code, language }) => {
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, {
-        code,
-        language,
-        users: new Set([socket.id])
-      });
-    }
-    compileAndRunCode(code, language, socket, roomId);
   });
 
   socket.on('send-message', ({ roomId, message, username }) => {

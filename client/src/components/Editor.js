@@ -59,7 +59,15 @@ async function runWithJudge0(code, language, stdin) {
     })
   });
 
-  const { token } = await submitRes.json();
+  const submitData = await submitRes.json();
+  const { token } = submitData;
+
+  if (!token) {
+    return {
+      error: true,
+      message: submitData.message || submitData.error || 'Submission failed: no token returned.'
+    };
+  }
 
   for (let i = 0; i < 10; i++) {
     await new Promise(r => setTimeout(r, 1500));
@@ -86,7 +94,6 @@ async function runWithJudge0(code, language, stdin) {
 }
 
 function Editor({ roomId, username }) {
-  const [code, setCode] = useState('// Start coding...');
   const [language, setLanguage] = useState('javascript');
   const [users, setUsers] = useState(1);
   const [chatOpen, setChatOpen] = useState(true);
@@ -97,21 +104,38 @@ function Editor({ roomId, username }) {
   const [showStdin, setShowStdin] = useState(false);
   const socketRef = useRef(null);
   const editorRef = useRef(null);
-  const isRemoteChange = useRef(false);
+  // Holds code received from remote so we can skip re-emitting it
+  const remoteCodeRef = useRef(null);
+  // Code to apply once editor mounts (load-code may arrive before onMount)
+  const pendingCodeRef = useRef(null);
+
+  const setEditorValue = (newCode) => {
+    const editor = editorRef.current;
+    if (!editor) {
+      pendingCodeRef.current = newCode;
+      return;
+    }
+    const position = editor.getPosition();
+    const selections = editor.getSelections();
+    editor.setValue(newCode);
+    if (position) editor.setPosition(position);
+    if (selections?.length) editor.setSelections(selections);
+  };
 
   useEffect(() => {
     socketRef.current = io(SOCKET_SERVER);
     socketRef.current.emit('join-room', roomId);
 
     socketRef.current.on('load-code', (roomData) => {
-      setCode(roomData.code);
+      remoteCodeRef.current = roomData.code;
       setLanguage(roomData.language);
       setUsers(roomData.userCount);
+      setEditorValue(roomData.code);
     });
 
     socketRef.current.on('code-update', (newCode) => {
-      isRemoteChange.current = true;
-      setCode(newCode);
+      remoteCodeRef.current = newCode;
+      setEditorValue(newCode);
     });
 
     socketRef.current.on('language-update', (newLanguage) => {
@@ -129,14 +153,13 @@ function Editor({ roomId, username }) {
     return () => {
       socketRef.current.disconnect();
     };
-  }, [roomId]);
+  }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEditorChange = (value) => {
-    if (isRemoteChange.current) {
-      isRemoteChange.current = false;
+    if (value === remoteCodeRef.current) {
+      remoteCodeRef.current = null;
       return;
     }
-    setCode(value);
     socketRef.current.emit('code-change', { roomId, code: value });
   };
 
@@ -148,6 +171,10 @@ function Editor({ roomId, username }) {
 
   const handleEditorDidMount = (editor) => {
     editorRef.current = editor;
+    if (pendingCodeRef.current !== null) {
+      editor.setValue(pendingCodeRef.current);
+      pendingCodeRef.current = null;
+    }
   };
 
   const copyRoomId = () => {
@@ -157,13 +184,16 @@ function Editor({ roomId, username }) {
 
   const loadStarterCode = () => {
     const starter = LANGUAGE_STARTERS[language];
-    setCode(starter);
+    remoteCodeRef.current = null;
+    setEditorValue(starter);
     socketRef.current.emit('code-change', { roomId, code: starter });
   };
 
   const handleRunCode = async () => {
     if (isRunning) return;
     setIsRunning(true);
+
+    const currentCode = editorRef.current ? editorRef.current.getValue() : '';
 
     const runningTab = {
       id: 'running',
@@ -175,7 +205,7 @@ function Editor({ roomId, username }) {
     setActiveTerminalTab('running');
 
     try {
-      const result = await runWithJudge0(code, language, stdin);
+      const result = await runWithJudge0(currentCode, language, stdin);
       const newTab = {
         id: Date.now(),
         title: result.error ? '⚠ Error' : '✓ Output',
@@ -264,7 +294,7 @@ function Editor({ roomId, username }) {
             <MonacoEditor
               height="100%"
               language={language}
-              value={code}
+              defaultValue="// Start coding..."
               onChange={handleEditorChange}
               onMount={handleEditorDidMount}
               theme="vs-dark"
@@ -279,7 +309,6 @@ function Editor({ roomId, username }) {
             />
           </div>
 
-          {/* Stdin Panel */}
           {showStdin && (
             <div className="stdin-panel">
               <div className="stdin-header">
@@ -296,7 +325,6 @@ function Editor({ roomId, username }) {
             </div>
           )}
 
-          {/* Terminal Output Panel */}
           {terminalTabs.length > 0 && (
             <div className="terminal-panel">
               <div className="terminal-tabs">
