@@ -1,0 +1,23 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # For PRs: only run when actually merged, not just closed
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl --silent --show-error --fail \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
